@@ -7,7 +7,7 @@ ENV PATH="/root/.local/bin:$SDKMAN_DIR/candidates/java/current/bin:$PATH"
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt update \
-    && apt install -y --no-install-recommends git maven gradle python3 python-is-python3 zip unzip curl \
+    && apt install -y --no-install-recommends git maven gradle python3 python-is-python3 zip unzip curl socat \
     && rm -rf /var/lib/apt/lists/* \
     && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
     && . "$NVM_DIR/nvm.sh" \

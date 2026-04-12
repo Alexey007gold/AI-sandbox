@@ -34,6 +34,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
   else
     docker run -d \
       --name "$CONTAINER_NAME" \
+      --add-host=host.docker.internal:host-gateway \
       -v "$WORKSPACE":"$WORKSPACE" \
       -v /Users/oleksii/.claude:/root/.claude \
       -v /Users/oleksii/.claude-mem:/root/.claude-mem \
@@ -49,6 +50,12 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
       sleep infinity
   fi
 fi
+
+# Forward host ports so localhost:PORT inside container reaches host
+for PORT in 9090 9091; do
+  docker exec -d "$CONTAINER_NAME" sh -c \
+    "ss -tlnp | grep -q :${PORT} || socat TCP-LISTEN:${PORT},fork,reuseaddr TCP:host.docker.internal:${PORT}" 2>/dev/null || true
+done
 
 # Register this session
 docker exec "$CONTAINER_NAME" touch "$SESSION_LOCK"
