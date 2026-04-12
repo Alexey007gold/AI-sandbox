@@ -21,13 +21,11 @@ docker build -t sbx .
 # Run interactively
 docker run -it sbx bash
 
-# Run with a mounted working directory
-docker run -it -v $(pwd):/$(pwd) sbx bash
+# Run with a mounted working directory (use start.sh instead)
+bash start.sh
 ```
 
 ## Architecture
 
 - **Dockerfile** — single-stage Ubuntu 24.04 image; installs toolchain and Claude Code CLI in one `RUN` layer
-- **start.sh** — entrypoint/startup script (currently empty, intended for container initialization logic)
-
-The `PATH` is extended in `~/.bashrc` to include `~/.local/bin` where Claude Code is installed. Note: since `~/.bashrc` is only sourced in interactive shells, running Claude Code in non-interactive Docker `CMD`/`ENTRYPOINT` calls may require sourcing it explicitly or setting `ENV PATH` in the Dockerfile instead.
+- **start.sh** — host-side launcher script; runs the container with volume mounts for the current directory (at the same absolute path), Claude config dirs (`~/.claude`, `~/.claude-mem`, `~/.claude.json`), and `-w $(pwd)` so the shell starts in the host's current directory.
