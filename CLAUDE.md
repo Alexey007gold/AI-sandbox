@@ -21,11 +21,11 @@ docker build -t sbx .
 # Run interactively
 docker run -it sbx bash
 
-# Run with a mounted working directory (use start.sh instead)
+# Start/reuse the sandbox container
 bash start.sh
 ```
 
 ## Architecture
 
 - **Dockerfile** — single-stage Ubuntu 24.04 image; installs toolchain and Claude Code CLI in one `RUN` layer
-- **start.sh** — host-side launcher script; runs the container with volume mounts for the current directory (at the same absolute path), Claude config dirs (`~/.claude`, `~/.claude-mem`, `~/.claude.json`), and `-w $(pwd)` so the shell starts in the host's current directory.
+- **start.sh** — host-side launcher; creates the container on first run (detached, `sleep infinity` as PID 1), then `docker exec`es into it on subsequent calls. Mounts `/Users/oleksii/Projects/Auto1` at the same path so it works from any subdirectory. Automatically stops the container when the last session exits.
