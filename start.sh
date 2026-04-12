@@ -13,6 +13,19 @@ fi
 # Container name derived from workspace path (unique per workspace)
 CONTAINER_NAME="sbx-$(echo "$WORKSPACE" | md5 -q | head -c 8)"
 
+# Unique lock file for this session
+SESSION_LOCK="/tmp/session.$$"
+
+cleanup() {
+  trap - EXIT INT TERM
+  docker exec "$CONTAINER_NAME" rm -f "$SESSION_LOCK" 2>/dev/null
+  SESSIONS=$(docker exec "$CONTAINER_NAME" sh -c 'ls /tmp/session.* 2>/dev/null | wc -l' | tr -d ' ')
+  if [ "${SESSIONS:-0}" -eq 0 ]; then
+    docker stop "$CONTAINER_NAME" > /dev/null
+  fi
+}
+trap cleanup EXIT INT TERM
+
 # Start container if not running
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
   if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -35,11 +48,8 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
   fi
 fi
 
+# Register this session
+docker exec "$CONTAINER_NAME" touch "$SESSION_LOCK"
+
 # Attach a session
 docker exec -it -w "$CURRENT_DIR" "$CONTAINER_NAME" bash -c "claude --dangerously-skip-permissions"
-
-# Stop container if no other sessions are active
-PROCS=$(docker exec "$CONTAINER_NAME" ps -eo comm= 2>/dev/null | grep -cv -E '^(sleep|ps)$')
-if [ "${PROCS:-0}" -eq 0 ]; then
-  docker stop "$CONTAINER_NAME" > /dev/null
-fi
