@@ -61,4 +61,4 @@ done
 docker exec "$CONTAINER_NAME" touch "$SESSION_LOCK"
 
 # Attach a session
-docker exec -it -w "$CURRENT_DIR" "$CONTAINER_NAME" bash -c "claude --dangerously-skip-permissions"
+docker exec -it -e TERM -e COLORTERM -w "$CURRENT_DIR" "$CONTAINER_NAME" bash -c "claude --dangerously-skip-permissions"
