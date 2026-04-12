@@ -16,13 +16,13 @@ This project defines a Docker container image intended as a sandbox environment 
 
 ```bash
 # Build the image
-docker build -t claude-sandbox .
+docker build -t sbx .
 
 # Run interactively
-docker run -it claude-sandbox bash
+docker run -it sbx bash
 
 # Run with a mounted working directory
-docker run -it -v $(pwd):/workspace claude-sandbox bash
+docker run -it -v $(pwd):/$(pwd) sbx bash
 ```
 
 ## Architecture
