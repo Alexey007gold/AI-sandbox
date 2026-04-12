@@ -11,4 +11,4 @@ docker run -it \
   -e KIBANA_PROD_URL \
   -w $(pwd) \
    sbx \
-   bash
+   bash -c "claude --dangerously-skip-permissions"

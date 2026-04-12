@@ -14,13 +14,15 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | b
     && . "$NVM_DIR/nvm.sh" \
     && nvm install $NODE_VERSION \
     && nvm alias default $NODE_VERSION \
-    && nvm use default
+    && nvm use default \
+    && ln -sf "$NVM_DIR/versions/node/$(nvm current)/bin/"* /usr/local/bin/
+
+RUN useradd -m -d /root -s /bin/bash user \
+    && echo 'user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers \
+    && chown user:user /root
+
+USER user
 
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
 ENV PATH="/root/.local/bin:$PATH"
-
-RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-
-#RUN chmod 755 /root/.claude
-#RUN chmod 755 /root/.claude.json
