@@ -22,6 +22,7 @@ cleanup() {
   SESSIONS=$(docker exec "$CONTAINER_NAME" sh -c 'ls /tmp/session.* 2>/dev/null | wc -l' | tr -d ' ')
   if [ "${SESSIONS:-0}" -eq 0 ]; then
     docker stop "$CONTAINER_NAME" > /dev/null
+    echo 'container stopped'
   fi
 }
 trap cleanup EXIT INT TERM
@@ -37,6 +38,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
       -v /Users/oleksii/.claude:/root/.claude \
       -v /Users/oleksii/.claude-mem:/root/.claude-mem \
       -v /Users/oleksii/.claude.json:/root/.claude.json \
+      -v /Users/oleksii/.m2:/root/.m2 \
       -e ELASTIC_API_KEY \
       -e KIBANA_URL \
       -e KIBANA_QA_API_KEY \
