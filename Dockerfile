@@ -3,11 +3,11 @@ FROM ubuntu:24.04
 ENV NVM_DIR=/root/.nvm
 ENV SDKMAN_DIR=/root/.sdkman
 ENV NODE_VERSION=24
-ENV PATH="/root/.local/bin:$SDKMAN_DIR/candidates/java/current/bin:$PATH"
+ENV PATH="/root/.local/bin:$SDKMAN_DIR/candidates/java/current/bin:$SDKMAN_DIR/candidates/gradle/current/bin:$PATH"
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt update \
-    && apt install -y --no-install-recommends git maven gradle python3 python-is-python3 zip unzip curl socat jq \
+    && apt install -y --no-install-recommends zip unzip git maven python3 python-is-python3 curl jq socat iproute2 iptables \
     && rm -rf /var/lib/apt/lists/* \
     && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
     && . "$NVM_DIR/nvm.sh" \
@@ -25,7 +25,8 @@ RUN curl -s "https://get.sdkman.io" | bash \
         && sdk install java 21.0.10-oracle \
         && sdk install java 21 $SDKMAN_DIR/candidates/java/21.0.10-oracle \
         && sdk install java 25.0.2-oracle \
-        && sdk install java 25 $SDKMAN_DIR/candidates/java/25.0.2-oracle" \
+        && sdk install java 25 $SDKMAN_DIR/candidates/java/25.0.2-oracle \
+        && sdk install gradle 9.4.1" \
     && rm -rf $SDKMAN_DIR/archives/* \
     && curl -fsSL https://claude.ai/install.sh | bash \
     && echo 'source "$HOME/.sdkman/bin/sdkman-init.sh"' >> /root/.bashrc
