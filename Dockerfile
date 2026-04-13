@@ -16,7 +16,6 @@ RUN apt update \
     && nvm use default \
     && ln -sf "$NVM_DIR/versions/node/$(nvm current)/bin/"* /usr/local/bin/ \
     && useradd -m -d /root -s /bin/bash user \
-    && echo 'user ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get' >> /etc/sudoers \
     && chown -R user:user /root
 
 USER user
