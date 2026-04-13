@@ -35,6 +35,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     docker run -d \
       --name "$CONTAINER_NAME" \
       --add-host=host.docker.internal:host-gateway \
+      --cap-add NET_ADMIN \
       -v "$WORKSPACE":"$WORKSPACE" \
       -v /Users/oleksii/.claude:/root/.claude \
       -v /Users/oleksii/.claude-mem:/root/.claude-mem \
@@ -50,6 +51,17 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
       sleep infinity
   fi
 fi
+
+# Restrict outbound to host gateway: only allow ports 9090 and 9091
+docker exec -u root "$CONTAINER_NAME" sh -c '
+  HOST_GW=$(ip route show default | awk "/default/ {print \$3}")
+  iptables -C OUTPUT -d "$HOST_GW" -p tcp --dport 9090 -j ACCEPT 2>/dev/null || \
+    iptables -A OUTPUT -d "$HOST_GW" -p tcp --dport 9090 -j ACCEPT
+  iptables -C OUTPUT -d "$HOST_GW" -p tcp --dport 9091 -j ACCEPT 2>/dev/null || \
+    iptables -A OUTPUT -d "$HOST_GW" -p tcp --dport 9091 -j ACCEPT
+  iptables -C OUTPUT -d "$HOST_GW" -j DROP 2>/dev/null || \
+    iptables -A OUTPUT -d "$HOST_GW" -j DROP
+'
 
 # Forward host ports so localhost:PORT inside container reaches host
 for PORT in 9090 9091; do
