@@ -2,18 +2,16 @@
 
 AUTO1_DIR="/Users/oleksii/Projects/Auto1"
 CURRENT_DIR="$(pwd)"
+WORKER_SCRIPT="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"
 
-# Determine workspace: Auto1 parent if we're under it, otherwise current dir
+# Workspace: Auto1 root if we're under it, otherwise current dir
 if [[ "$CURRENT_DIR" == "$AUTO1_DIR"* ]]; then
   WORKSPACE="$AUTO1_DIR"
 else
   WORKSPACE="$CURRENT_DIR"
 fi
 
-# Container name derived from workspace path (unique per workspace)
 CONTAINER_NAME="sbx-$(echo "$WORKSPACE" | md5 -q | head -c 8)"
-
-# Unique lock file for this session
 SESSION_LOCK="/tmp/session.$$"
 
 cleanup() {
@@ -27,8 +25,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Start claude-mem worker on host if not running
-WORKER_SCRIPT="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"
+# Start claude-mem worker on host if not already running
 if ! nc -z 127.0.0.1 37777 2>/dev/null && [ -f "$WORKER_SCRIPT" ]; then
   CLAUDE_MEM_WORKER_PORT=37777 bun "$WORKER_SCRIPT" &
   disown $!
@@ -38,7 +35,7 @@ if ! nc -z 127.0.0.1 37777 2>/dev/null && [ -f "$WORKER_SCRIPT" ]; then
   done
 fi
 
-# Start container if not running
+# Create or start container
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
   if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     docker start "$CONTAINER_NAME"
@@ -64,31 +61,30 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
   fi
 fi
 
-# Symlink host path so plugin installPaths (hardcoded to /Users/oleksii/.claude) resolve inside container
-docker exec -u root "$CONTAINER_NAME" bash -c "mkdir -p /Users/oleksii && ln -sfn /root/.claude /Users/oleksii/.claude"
-docker exec -u root "$CONTAINER_NAME" bash -c "mkdir -p /Users/oleksii && ln -sfn /root/.claude-mem /Users/oleksii/.claude-mem"
+# Symlink host paths so plugin installPaths resolve correctly inside container
+docker exec -u root "$CONTAINER_NAME" bash -c "
+  mkdir -p /Users/oleksii
+  ln -sfn /root/.claude /Users/oleksii/.claude
+  ln -sfn /root/.claude-mem /Users/oleksii/.claude-mem
+"
 
-# Restrict outbound to host gateway: only allow ports 9090 and 9091
+# Restrict outbound to host gateway to allowed ports only
 docker exec -u root "$CONTAINER_NAME" sh -c '
   HOST_GW=$(ip route show default | awk "/default/ {print \$3}")
-  iptables -C OUTPUT -d "$HOST_GW" -p tcp --dport 9090 -j ACCEPT 2>/dev/null || \
-    iptables -A OUTPUT -d "$HOST_GW" -p tcp --dport 9090 -j ACCEPT
-  iptables -C OUTPUT -d "$HOST_GW" -p tcp --dport 9091 -j ACCEPT 2>/dev/null || \
-    iptables -A OUTPUT -d "$HOST_GW" -p tcp --dport 9091 -j ACCEPT
-  iptables -C OUTPUT -d "$HOST_GW" -p tcp --dport 37777 -j ACCEPT 2>/dev/null || \
-    iptables -A OUTPUT -d "$HOST_GW" -p tcp --dport 37777 -j ACCEPT
+  for PORT in 9090 9091 37777; do
+    iptables -C OUTPUT -d "$HOST_GW" -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null || \
+      iptables -A OUTPUT -d "$HOST_GW" -p tcp --dport "$PORT" -j ACCEPT
+  done
   iptables -C OUTPUT -d "$HOST_GW" -j DROP 2>/dev/null || \
     iptables -A OUTPUT -d "$HOST_GW" -j DROP
 '
 
-# Forward host ports so localhost:PORT inside container reaches host
+# Forward allowed ports so localhost:PORT inside container reaches host
 for PORT in 9090 9091 37777; do
   docker exec -d "$CONTAINER_NAME" sh -c \
     "ss -tlnp | grep -q :${PORT} || socat TCP-LISTEN:${PORT},fork,reuseaddr TCP:host.docker.internal:${PORT}" 2>/dev/null || true
 done
 
-# Register this session
+# Register session and attach
 docker exec "$CONTAINER_NAME" touch "$SESSION_LOCK"
-
-# Attach a session
 docker exec -it -e TERM -e COLORTERM -w "$CURRENT_DIR" "$CONTAINER_NAME" bash -c "claude --dangerously-skip-permissions"
