@@ -47,7 +47,6 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
       -v "$WORKSPACE":"$WORKSPACE" \
       -v /Users/oleksii/.claude:/root/.claude \
       -v /Users/oleksii/.claude-mem:/root/.claude-mem \
-      -v /Users/oleksii/.claude.json:/root/.claude.json \
       -v /Users/oleksii/.m2:/root/.m2 \
       -e TZ="$(readlink /etc/localtime | sed 's|.*/zoneinfo/||')" \
       -e ELASTIC_API_KEY \
@@ -66,6 +65,7 @@ docker exec -u root "$CONTAINER_NAME" bash -c "
   mkdir -p /Users/oleksii
   ln -sfn /root/.claude /Users/oleksii/.claude
   ln -sfn /root/.claude-mem /Users/oleksii/.claude-mem
+  ln -sfn /root/.claude/claude_.json /root/.claude.json
 "
 
 # Restrict outbound to host gateway to allowed ports only
