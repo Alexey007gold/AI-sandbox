@@ -86,5 +86,5 @@ for PORT in 9090 9091 37777; do
 done
 
 # Register session and attach
-docker exec "$CONTAINER_NAME" touch "$SESSION_LOCK"
+docker exec "$CONTAINER_NAME" sh -c "echo '$CURRENT_DIR' > '$SESSION_LOCK'"
 docker exec -it -e TERM -e COLORTERM -w "$CURRENT_DIR" "$CONTAINER_NAME" bash -c "claude --dangerously-skip-permissions"
