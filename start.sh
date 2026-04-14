@@ -27,6 +27,17 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# Start claude-mem worker on host if not running
+WORKER_SCRIPT="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"
+if ! nc -z 127.0.0.1 37777 2>/dev/null && [ -f "$WORKER_SCRIPT" ]; then
+  CLAUDE_MEM_WORKER_PORT=37777 bun "$WORKER_SCRIPT" &
+  disown $!
+  for i in $(seq 1 10); do
+    nc -z 127.0.0.1 37777 2>/dev/null && break
+    sleep 0.5
+  done
+fi
+
 # Start container if not running
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
   if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -41,6 +52,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
       -v /Users/oleksii/.claude-mem:/root/.claude-mem \
       -v /Users/oleksii/.claude.json:/root/.claude.json \
       -v /Users/oleksii/.m2:/root/.m2 \
+      -e TZ="$(readlink /etc/localtime | sed 's|.*/zoneinfo/||')" \
       -e ELASTIC_API_KEY \
       -e KIBANA_URL \
       -e KIBANA_QA_API_KEY \
@@ -52,6 +64,10 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
   fi
 fi
 
+# Symlink host path so plugin installPaths (hardcoded to /Users/oleksii/.claude) resolve inside container
+docker exec -u root "$CONTAINER_NAME" bash -c "mkdir -p /Users/oleksii && ln -sfn /root/.claude /Users/oleksii/.claude"
+docker exec -u root "$CONTAINER_NAME" bash -c "mkdir -p /Users/oleksii && ln -sfn /root/.claude-mem /Users/oleksii/.claude-mem"
+
 # Restrict outbound to host gateway: only allow ports 9090 and 9091
 docker exec -u root "$CONTAINER_NAME" sh -c '
   HOST_GW=$(ip route show default | awk "/default/ {print \$3}")
@@ -59,12 +75,14 @@ docker exec -u root "$CONTAINER_NAME" sh -c '
     iptables -A OUTPUT -d "$HOST_GW" -p tcp --dport 9090 -j ACCEPT
   iptables -C OUTPUT -d "$HOST_GW" -p tcp --dport 9091 -j ACCEPT 2>/dev/null || \
     iptables -A OUTPUT -d "$HOST_GW" -p tcp --dport 9091 -j ACCEPT
+  iptables -C OUTPUT -d "$HOST_GW" -p tcp --dport 37777 -j ACCEPT 2>/dev/null || \
+    iptables -A OUTPUT -d "$HOST_GW" -p tcp --dport 37777 -j ACCEPT
   iptables -C OUTPUT -d "$HOST_GW" -j DROP 2>/dev/null || \
     iptables -A OUTPUT -d "$HOST_GW" -j DROP
 '
 
 # Forward host ports so localhost:PORT inside container reaches host
-for PORT in 9090 9091; do
+for PORT in 9090 9091 37777; do
   docker exec -d "$CONTAINER_NAME" sh -c \
     "ss -tlnp | grep -q :${PORT} || socat TCP-LISTEN:${PORT},fork,reuseaddr TCP:host.docker.internal:${PORT}" 2>/dev/null || true
 done

@@ -3,7 +3,8 @@ FROM ubuntu:24.04
 ENV NVM_DIR=/root/.nvm
 ENV SDKMAN_DIR=/root/.sdkman
 ENV NODE_VERSION=24
-ENV PATH="/root/.local/bin:$SDKMAN_DIR/candidates/java/current/bin:$SDKMAN_DIR/candidates/gradle/current/bin:$PATH"
+ENV BUN_INSTALL=/root/.bun
+ENV PATH="/root/.bun/bin:/root/.local/bin:$SDKMAN_DIR/candidates/java/current/bin:$SDKMAN_DIR/candidates/gradle/current/bin:$PATH"
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt update \
@@ -29,4 +30,9 @@ RUN curl -s "https://get.sdkman.io" | bash \
         && sdk install gradle 9.4.1" \
     && rm -rf $SDKMAN_DIR/archives/* \
     && curl -fsSL https://claude.ai/install.sh | bash \
-    && echo 'source "$HOME/.sdkman/bin/sdkman-init.sh"' >> /root/.bashrc
+    && curl -fsSL https://bun.sh/install | bash \
+    && echo 'source "$HOME/.sdkman/bin/sdkman-init.sh"' >> /root/.bashrc \
+    && echo 'export BUN_INSTALL="$HOME/.bun"' >> /root/.bashrc \
+    && echo 'export PATH="$HOME/.bun/bin:$PATH"' >> /root/.bashrc
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
