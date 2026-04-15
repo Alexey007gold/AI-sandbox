@@ -1,18 +1,25 @@
 #!/bin/bash
 
-AUTO1_DIR="/Users/oleksii/Projects/Auto1"
-AI_DIR="/Users/oleksii/Projects/AI"
+_src="${BASH_SOURCE[0]}"
+while [ -L "$_src" ]; do
+  _dir="$(cd -P "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$_src")" && pwd)"
+unset _src _dir
 CURRENT_DIR="$(pwd)"
 WORKER_SCRIPT="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"
 
-# Workspace: Auto1 root if we're under it, otherwise current dir
-if [[ "$CURRENT_DIR" == "$AUTO1_DIR"* ]]; then
-  WORKSPACE="$AUTO1_DIR"
-elif [[ "$CURRENT_DIR" == "$AI_DIR"* ]]; then
-  WORKSPACE="$AI_DIR"
-else
-  WORKSPACE="$CURRENT_DIR"
-fi
+# Workspace: first configured workspace that is a prefix of current dir, else current dir
+WORKSPACE="$CURRENT_DIR"
+while IFS= read -r dir; do
+  dir="${dir/#\~/$HOME}"
+  if [[ "$CURRENT_DIR" == "$dir"* ]]; then
+    WORKSPACE="$dir"
+    break
+  fi
+done < <(jq -r '.workspaces[]' "$SCRIPT_DIR/config.json")
 
 CONTAINER_NAME="sbx-$(echo "$WORKSPACE" | md5 -q | head -c 8)"
 SESSION_LOCK="/tmp/session.$$"
@@ -48,9 +55,9 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
       --add-host=host.docker.internal:host-gateway \
       --cap-add NET_ADMIN \
       -v "$WORKSPACE":"$WORKSPACE" \
-      -v /Users/oleksii/.claude:/root/.claude \
-      -v /Users/oleksii/.claude-mem:/root/.claude-mem \
-      -v /Users/oleksii/.m2:/root/.m2 \
+      -v "$HOME/.claude:/root/.claude" \
+      -v "$HOME/.claude-mem:/root/.claude-mem" \
+      -v "$HOME/.m2:/root/.m2" \
       -e TZ="$(readlink /etc/localtime | sed 's|.*/zoneinfo/||')" \
       -e ELASTIC_API_KEY \
       -e KIBANA_URL \
@@ -65,9 +72,9 @@ fi
 
 # Symlink host paths so plugin installPaths resolve correctly inside container
 docker exec -u root "$CONTAINER_NAME" bash -c "
-  mkdir -p /Users/oleksii
-  ln -sfn /root/.claude /Users/oleksii/.claude
-  ln -sfn /root/.claude-mem /Users/oleksii/.claude-mem
+  mkdir -p "$HOME"
+  ln -sfn /root/.claude "$HOME/.claude"
+  ln -sfn /root/.claude-mem "$HOME/.claude-mem"
   ln -sfn /root/.claude/claude_.json /root/.claude.json
 "
 
