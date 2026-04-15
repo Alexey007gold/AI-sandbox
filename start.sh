@@ -1,12 +1,15 @@
 #!/bin/bash
 
 AUTO1_DIR="/Users/oleksii/Projects/Auto1"
+AI_DIR="/Users/oleksii/Projects/AI"
 CURRENT_DIR="$(pwd)"
 WORKER_SCRIPT="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"
 
 # Workspace: Auto1 root if we're under it, otherwise current dir
 if [[ "$CURRENT_DIR" == "$AUTO1_DIR"* ]]; then
   WORKSPACE="$AUTO1_DIR"
+elif [[ "$CURRENT_DIR" == "$AI_DIR"* ]]; then
+  WORKSPACE="$AI_DIR"
 else
   WORKSPACE="$CURRENT_DIR"
 fi
