@@ -28,8 +28,6 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 RUN curl -fsSL https://bun.sh/install | bash
 
-RUN curl -fsSL https://claude.ai/install.sh | bash
-
 RUN curl -s "https://get.sdkman.io" | bash \
     && bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh \
     && sdk install java 25.0.2-oracle \
@@ -42,3 +40,5 @@ RUN curl -s "https://get.sdkman.io" | bash \
 RUN echo 'source "$HOME/.sdkman/bin/sdkman-init.sh"' >> /root/.bashrc \
     && echo 'export BUN_INSTALL="$HOME/.bun"' >> /root/.bashrc \
     && echo 'export PATH="$HOME/.bun/bin:$PATH"' >> /root/.bashrc
+
+RUN curl -fsSL https://claude.ai/install.sh | bash

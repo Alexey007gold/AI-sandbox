@@ -24,16 +24,6 @@ done < <(jq -r '.workspaces[]' "$SCRIPT_DIR/config.json")
 CONTAINER_NAME="sbx-$(echo "$WORKSPACE" | md5 -q | head -c 8)"
 SESSION_LOCK="/tmp/session.$$"
 
-cleanup() {
-  trap - EXIT INT TERM
-  docker exec "$CONTAINER_NAME" rm -f "$SESSION_LOCK" 2>/dev/null
-  SESSIONS=$(docker exec "$CONTAINER_NAME" sh -c 'ls /tmp/session.* 2>/dev/null | wc -l' | tr -d ' ')
-  if [ "${SESSIONS:-0}" -eq 0 ]; then
-    docker stop "$CONTAINER_NAME" > /dev/null
-    echo 'container stopped'
-  fi
-}
-trap cleanup EXIT INT TERM
 
 # Start claude-mem worker on host if not already running
 if ! nc -z 127.0.0.1 37777 2>/dev/null && [ -f "$WORKER_SCRIPT" ]; then
@@ -68,6 +58,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
       sbx \
       sleep infinity
   fi
+  docker exec "$CONTAINER_NAME" sh -c 'rm -f /tmp/session.*' 2>/dev/null
 fi
 
 # Symlink host paths so plugin installPaths resolve correctly inside container
@@ -95,6 +86,9 @@ for PORT in 9090 9091 37777; do
     "ss -tlnp | grep -q :${PORT} || socat TCP-LISTEN:${PORT},fork,reuseaddr TCP:host.docker.internal:${PORT}" 2>/dev/null || true
 done
 
-# Register session and attach
-docker exec "$CONTAINER_NAME" sh -c "echo '$CURRENT_DIR' > '$SESSION_LOCK'"
-docker exec -it -e TERM -e COLORTERM -w "$CURRENT_DIR" "$CONTAINER_NAME" bash -c "claude --dangerously-skip-permissions"
+# Register session, attach, and clean up on exit
+docker exec -it -e TERM -e COLORTERM -w "$CURRENT_DIR" "$CONTAINER_NAME" bash -c "
+  echo '$CURRENT_DIR' > '$SESSION_LOCK'
+  trap 'rm -f $SESSION_LOCK; [ \$(ls /tmp/session.* 2>/dev/null | wc -l | tr -d \" \") -eq 0 ] && kill 1' EXIT
+  claude --dangerously-skip-permissions
+"
