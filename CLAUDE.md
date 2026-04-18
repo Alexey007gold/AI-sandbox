@@ -55,6 +55,6 @@ Host-side launcher with the following responsibilities:
 - Ports **9090/9091** — local proxy forwarding to anthropic/delorian hosts (configured separately)
 
 **Environment propagation:**
-- Passes `TZ`, `ELASTIC_API_KEY`, `KIBANA_URL`, and related QA/prod Kibana credentials into the container
+- Passes `TZ`, `KIBANA_QA_API_KEY`, `KIBANA_QA_URL`, and same for prod Kibana into the container
 
 **Session entry:** Drops into `claude --dangerously-skip-permissions` in the correct working directory.
