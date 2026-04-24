@@ -64,17 +64,18 @@ DOCKER_EXEC_PID=""
 _stop_if_last_session() {
   trap - EXIT HUP INT TERM
   [ -n "$DOCKER_EXEC_PID" ] && kill "$DOCKER_EXEC_PID" 2>/dev/null
-  # Killing docker exec client doesn't stop container-side processes; signal them directly
-  docker exec "$CONTAINER_NAME" sh -c '
-    for f in /tmp/session.*; do [ -f "$f" ] && kill -HUP "$(cat "$f" 2>/dev/null)" 2>/dev/null; done
+  # Killing the exec client does not reliably propagate SIGHUP inside Docker; signal explicitly
+  docker exec -e SESSION_LOCK="$SESSION_LOCK" "$CONTAINER_NAME" sh -c '
+    [ -f "$SESSION_LOCK" ] && kill -HUP "$(head -1 "$SESSION_LOCK" 2>/dev/null)" 2>/dev/null
   ' 2>/dev/null || true
   for _ in 1 2 3 4 5; do
-    docker exec "$CONTAINER_NAME" sh -c '
-      for f in /tmp/session.*; do
-        [ -f "$f" ] && kill -0 "$(cat "$f" 2>/dev/null)" 2>/dev/null && exit 0
-      done; exit 1
-    ' 2>/dev/null || { docker stop "$CONTAINER_NAME" >/dev/null 2>&1 && echo "container stopped"; return; }
     sleep 1
+    result=$(docker exec "$CONTAINER_NAME" sh -c '
+      for f in /tmp/session.*; do
+        [ -f "$f" ] && kill -0 "$(head -1 "$f" 2>/dev/null)" 2>/dev/null && echo alive && exit 0
+      done; echo done
+    ' 2>/dev/null)
+    [ "$result" = "done" ] && { docker stop "$CONTAINER_NAME" >/dev/null 2>&1 && echo "container stopped"; return; }
   done
 }
 trap _stop_if_last_session EXIT HUP INT TERM
@@ -84,7 +85,7 @@ _SCRIPT_PID=$$
 
 docker exec -it -e TERM -e COLORTERM -e SESSION_LOCK="$SESSION_LOCK" -e WORK_DIR="$CURRENT_DIR" \
   -w "$CURRENT_DIR" "$CONTAINER_NAME" bash -lc '
-  echo '$CURRENT_DIR' > '$SESSION_LOCK'
+  echo $$ > "$SESSION_LOCK"; echo "$WORK_DIR" >> "$SESSION_LOCK"
   _cleanup() {
     trap - EXIT HUP INT TERM
     kill "$CLAUDE_PID" 2>/dev/null
